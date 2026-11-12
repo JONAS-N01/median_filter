@@ -202,7 +202,7 @@ int main(int argc, char **argv) {
 
     if (argc < 5) {
         printf("Usage: %s [reference|simple|avx2] [input_image] [output_file] [# of test iterations]\n", argv[0]);
-        return 1;
+        return EXIT_FAILURE;
     }
 
     int32_t width, height, channels;
@@ -210,13 +210,13 @@ int main(int argc, char **argv) {
     uint8_t *img_in = stbi_load(argv[2], &width, &height, &channels, 3); // force 3 channels for RGB image
     if (!img_in) {
         printf("Could not load image at %s.\n", argv[2]);
-        return 1;
+        return EXIT_FAILURE;
     }
     printf("Loaded image %s.\n", argv[2]);
     uint8_t *img_out = calloc(width * height * channels, sizeof(uint8_t));
     if (!img_out) {
         printf("Failed to allocate storage for output.\n");
-        return 1;
+        return EXIT_FAILURE;
     }
 
     int filter_return = 0;
@@ -257,14 +257,14 @@ int main(int argc, char **argv) {
         printf("Please specify the filter implementation from the following options: reference, simple, avx2\n");
         stbi_image_free(img_in);
         free(img_out);
-        return -1;
+        return EXIT_FAILURE;
     }
 
     if (filter_return != 0) {
         printf("Failed to apply median filter.\n");
         stbi_image_free(img_in);
         free(img_out);
-        return -1;
+        return EXIT_FAILURE;
     }
 
     printf("Test results for %s filter:\n", argv[1]);
@@ -277,5 +277,5 @@ int main(int argc, char **argv) {
     stbi_image_free(img_in);
     free(img_out);
 
-    return 0;
+    return EXIT_SUCCESS;
 }
