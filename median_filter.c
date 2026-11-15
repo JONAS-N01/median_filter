@@ -109,7 +109,7 @@ int median_filter_reference(uint8_t *img_in, uint8_t *img_out, int32_t width, in
 }
 
 
-// Simplified version of the median filter that iterates over the image byte values instead of whole pixels
+// Simplified version of the 3x3 median filter that iterates over the image byte values instead of whole pixels
 // The edges contain values, however they do not contain proper medians from a 3x3 window!
 int median_filter_simple(uint8_t *img_in, uint8_t *img_out, int32_t width, int32_t height) {
     width = 3 * width;
@@ -162,21 +162,43 @@ int median_filter_avx2(uint8_t *img_in, uint8_t *img_out, int32_t width, int32_t
     }
 
     // continue with vectorized loop
-    for (; idx < (height - 1) * width - 31; idx += 32) {
-        __m256i tl = _mm256_loadu_si256((__m256i*) &img_in[idx - width - 3]);
-        __m256i tc = _mm256_loadu_si256((__m256i*) &img_in[idx - width]);
-        __m256i tr = _mm256_loadu_si256((__m256i*) &img_in[idx - width + 3]);
+    // use "sliding" registers to reduce the number of cache/memory accesses with curr and next variables 
+    __m256i t_curr = _mm256_loadu_si256((__m256i*) &img_in[idx - width - 3]);
+    __m256i m_curr = _mm256_loadu_si256((__m256i*) &img_in[idx - 3]);
+    __m256i b_curr = _mm256_loadu_si256((__m256i*) &img_in[idx + width - 3]);
+    for (; idx < (height - 1) * width - 31 - 3 - 32; idx += 32) { // -31 to account for 32 byte vectors, -3 to account for right window values and -32 to account for next values
+        __m256i t_next = _mm256_loadu_si256((__m256i*) &img_in[idx - width - 3 + 32]);
+        __m256i m_next = _mm256_loadu_si256((__m256i*) &img_in[idx - 3 + 32]);
+        __m256i b_next = _mm256_loadu_si256((__m256i*) &img_in[idx + width - 3 + 32]);
 
-        __m256i ml = _mm256_loadu_si256((__m256i*) &img_in[idx - 3]);
-        __m256i mc = _mm256_loadu_si256((__m256i*) &img_in[idx]);
-        __m256i mr = _mm256_loadu_si256((__m256i*) &img_in[idx + 3]);
+        // temp vectors contain the last 128 bits of curr and the first 128 bits of next
+        __m256i t_temp = _mm256_permute2x128_si256(t_curr, t_next, 0x21);
+        __m256i m_temp = _mm256_permute2x128_si256(m_curr, m_next, 0x21);
+        __m256i b_temp = _mm256_permute2x128_si256(b_curr, b_next, 0x21);
 
-        __m256i bl = _mm256_loadu_si256((__m256i*) &img_in[idx + width - 3]);
-        __m256i bc = _mm256_loadu_si256((__m256i*) &img_in[idx + width]);
-        __m256i br = _mm256_loadu_si256((__m256i*) &img_in[idx + width + 3]);
+        // _mm256_alignr_epi8 to construct center and right window values without extra memory accesses:
+        //  - lower 128 bits: combine the lower bits of temp (upper bits of curr) and lower bits of curr to get back curr and shift by 3/6 bytes
+        //                      -> results in the bytes 3-18 from curr for shift 3
+        //  - upper 128 bits: combine the upper bits of temp (lower bits of next) and upper bits of curr and shift by 3/6 bytes to combine curr and next 
+        //                    over their boundary -> e.g. for shift 3 we get the upper 13 bytes of curr and the lower 3 bytes of next
+        __m256i tl = t_curr;
+        __m256i tc = _mm256_alignr_epi8(t_temp, t_curr, 3);
+        __m256i tr = _mm256_alignr_epi8(t_temp, t_curr, 6);
+
+        __m256i ml = m_curr;
+        __m256i mc = _mm256_alignr_epi8(m_temp, m_curr, 3);
+        __m256i mr = _mm256_alignr_epi8(m_temp, m_curr, 6);
+
+        __m256i bl = b_curr;
+        __m256i bc = _mm256_alignr_epi8(b_temp, b_curr, 3);
+        __m256i br = _mm256_alignr_epi8(b_temp, b_curr, 6);
 
         __m256i medians = get_median_9_avx2(tl, tc, tr, ml, mc, mr, bl, bc, br);
         _mm256_stream_si256((__m256i*)&img_out[idx], medians);
+
+        t_curr = t_next;
+        m_curr = m_next;
+        b_curr = b_next;
     }
 
     for (; idx < (height - 1) * width; ++idx) {
@@ -210,12 +232,15 @@ int main(int argc, char **argv) {
     uint8_t *img_in = stbi_load(argv[2], &width, &height, &channels, 3); // force 3 channels for RGB image
     if (!img_in) {
         printf("Could not load image at %s.\n", argv[2]);
+        stbi_image_free(img_in);
         return EXIT_FAILURE;
     }
     printf("Loaded image %s.\n", argv[2]);
     uint8_t *img_out = calloc(width * height * channels, sizeof(uint8_t));
     if (!img_out) {
         printf("Failed to allocate storage for output.\n");
+        stbi_image_free(img_in);
+        free(img_out);
         return EXIT_FAILURE;
     }
 
