@@ -1,14 +1,14 @@
 # 3x3 Median Filter
-This repository provides three C implementation of a 3x3 median filter on an image and a simple performance test. 
+This repository provides three C implementations of a 3x3 median filter on an image and a simple performance test. They can be found in the ```median_filter.c``` file.
 The first implementation is a naive reference algorithm taken from Wikipedia, the second is a simple scalar algorithm and the third is an optimized version with AVX2 intrinsics.
 ## Usage
 ``` ./median_filter [implementation] [input image file] [output file.png] [test iterations] ```
 
-```[implementation]``` is one of the following:  ```reference | simple | avx2```
+- ```[implementation]``` is one of the following:  ```reference | simple | avx2```
 
-```[input image file] [output file.png]``` are the input image file to apply the filter to and which output file to write the output png image to
+- ```[input image file] [output file.png]``` are the input image file to apply the filter to and which output file to write the output png image to
 
-```[test iterations]``` describes the number of iterations to run the test for. The output measurement removes the first 5 "warm-up" iterations. 
+- ```[test iterations]``` describes the number of iterations to run the test for. The output measurement removes the first 5 "warm-up" iterations. 
 
 ## Example output
 ``` ./median_filter avx2 images/image_large.jpg output_images/avx2_out_large.png 1000```
@@ -20,8 +20,7 @@ Stored image at output_images/avx2_out_large.png.
 ```
 
 ## Performance measurements
-The following measurements were conducted on a computer with an Intel Core i7-13700K CPU and 32 GB of DDR5 RAM running Ubuntu 26.04 LTS.
-
+The measurements were made on a computer with an Intel Core i7-13700K CPU and 32 GB of DDR5 RAM running Ubuntu 26.04 LTS.
 The following tables show the average runtime of the filter functions for the small and large images seen in the ```images``` folder:
 
 The first table shows measurements for the program compiled with optimization ```-O1```.
@@ -36,7 +35,7 @@ The second table shows measurements for the program compiled with optimization `
 | img_small.jpg |12305.00 μs|7.89 μs  |7.33 μs|    
 | img_large.jpg |8647.13 ms |6.90 ms  |5.75 ms|
 
-The following commands were used to take these measurements:
+The following commands were used to take the measurements:
 ```
 with compiler flag -O1:
 ./median_filter reference pictures/img_small.jpg output_images/reference_out_small.png 1000
