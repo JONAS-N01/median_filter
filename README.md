@@ -55,7 +55,11 @@ with compiler flag -O3:
 ./median_filter simple    pictures/img_large.jpg output_images/simple_out_large.png    1000
 ./median_filter avx2      pictures/img_large.jpg output_images/avx2_out_large.png      1000
 ```
-
+### Improvement ideas
+- vertical blocking for better cache behavior with wide images
+- aligned input loads
+- multithreading (would make this program dependent on the operating system though)
+  
 ## Sources
 I used several external sources as help for coding, non-standard C libraries and sample images for testing.
 ### Code sources
